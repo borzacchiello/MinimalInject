@@ -82,7 +82,6 @@ static void HookDynamicFunction(LPCSTR module_name, LPCSTR function_name, funcpo
 		Message("GetProcAddress failed\n");
 		exit(1);
 	}
-	std::cout << std::hex << f << "\n";
 	HookFunction(f, function_to_load);
 }
 

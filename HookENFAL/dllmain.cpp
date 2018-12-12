@@ -29,7 +29,7 @@ static void Message(const char* mex)
 	CloseHandle(debug_file);
 }
 
-static void HookFunction(funcpointer address_to_patch, funcpointer function_to_load)
+static void HookFunction(funcpointer address_to_patch, funcpointer function_to_load, unsigned char* old_data)
 {
 	DWORD bytes_written;
 
@@ -50,6 +50,23 @@ static void HookFunction(funcpointer address_to_patch, funcpointer function_to_l
 		exit(1);
 	}
 
+	// Save old opcodes
+	if (!WriteProcessMemory(
+		GetCurrentProcess(),
+		(LPVOID)old_data,
+		(LPVOID)address_to_patch,
+		len_opcodes,
+		&bytes_written
+	)) {
+		Message("WriteProcessMemory failed\n");
+		exit(1);
+	}
+	else if (bytes_written != len_opcodes) {
+		Message("written too few bytes\n");
+		exit(1);
+	}
+
+	// Write new opcodes
 	if (!WriteProcessMemory(
 		GetCurrentProcess(),
 		(LPVOID)address_to_patch,
@@ -75,28 +92,60 @@ static void HookFunction(funcpointer address_to_patch, funcpointer function_to_l
 	}
 }
 
-static void HookDynamicFunction(LPCSTR module_name, LPCSTR function_name, funcpointer function_to_load) 
+static void HookDynamicFunction(LPCSTR module_name, LPCSTR function_name, funcpointer function_to_load, unsigned char* old_data) 
 {
 	funcpointer f = (funcpointer)GetProcAddress(GetModuleHandleA(module_name), function_name);
 	if ( !f ) {
 		Message("GetProcAddress failed\n");
 		exit(1);
 	}
-	HookFunction(f, function_to_load);
+	HookFunction(f, function_to_load, old_data);
+}
+
+// restore old opcodes
+static void RestoreData(LPVOID dst, LPVOID src, DWORD len)
+{
+	DWORD bytes_written;
+	if (!WriteProcessMemory(
+		GetCurrentProcess(),
+		(LPVOID)dst,
+		(LPVOID)src,
+		len,
+		&bytes_written
+	)) {
+		Message("WriteProcessMemory failed\n");
+		exit(1);
+	}
+	else if (bytes_written != len) {
+		Message("written too few bytes\n");
+		exit(1);
+	}
 }
 
 // *************************************************************************************************
 // HOOKS *******************************************************************************************
 
+unsigned char oldGetExplorerPid[7] = { 0 };
 static DWORD HookGetExplorerPid()
 {
 	Message("HookGetPid triggered\n");
+	RestoreData((LPVOID)ADDRESS_GET_EXPLORER_PID, oldGetExplorerPid, 7);
 	return GetCurrentProcessId();
 }
 
+unsigned char oldSetReg[7] = { 0 };
 static LSTATUS HookSetReg()
 {
 	Message("HookSetReg triggered\n");
+	RestoreData((LPVOID)GetProcAddress(GetModuleHandleA("advapi32"), "RegSetValueExA"), oldSetReg, 7);
+	return 1;
+}
+
+unsigned char oldCloseReg[7] = { 0 };
+static LSTATUS HookCloseReg()
+{
+	Message("HookCloseReg triggered\n");
+	RestoreData((LPVOID)GetProcAddress(GetModuleHandleA("advapi32"), "RegCloseKey"), oldCloseReg, 7);
 	return 1;
 }
 
@@ -120,8 +169,9 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 		CloseHandle(debug_file);
 
 		Message("File initialization completed\n");
-		HookFunction((funcpointer)ADDRESS_GET_EXPLORER_PID, (funcpointer)&HookGetExplorerPid);
-		HookDynamicFunction("advapi32", "RegSetValueExA", (funcpointer)&HookSetReg);
+		HookFunction((funcpointer)ADDRESS_GET_EXPLORER_PID, (funcpointer)&HookGetExplorerPid, oldGetExplorerPid);
+		HookDynamicFunction("advapi32", "RegSetValueExA", (funcpointer)&HookSetReg, oldSetReg);
+		HookDynamicFunction("advapi32", "RegCloseKey", (funcpointer)&HookCloseReg, oldCloseReg);
 		Message("Patch completed\n");
 		executed = true;
 	}

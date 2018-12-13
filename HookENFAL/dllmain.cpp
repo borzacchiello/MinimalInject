@@ -1,5 +1,6 @@
 // dllmain.cpp : Definisce il punto di ingresso per l'applicazione DLL.
 #include "stdafx.h"
+#include "trampoline.h"
 
 #include <iostream>
 
@@ -8,6 +9,11 @@ HANDLE debug_file;
 BOOL executed = false;
 
 #define ADDRESS_GET_EXPLORER_PID 0x402550
+#define ADDRESS_SKIP_REMOTE_THREAD 0x402448
+#define ADDRESS_SKIP_REMOTE_THREAD_RETURN 0x402472
+#define ADDRESS_VIRTUAL_ALLOC 0x40138A
+
+unsigned long address_t1;
 
 typedef void(*funcpointer)(void *);
 
@@ -27,6 +33,82 @@ static void Message(const char* mex)
 	DWORD bytesWritten;
 	WriteFile(debug_file, mex, strlen(mex), &bytesWritten, NULL);
 	CloseHandle(debug_file);
+}
+
+
+static void HookInstruction(funcpointer instructions_to_patch, funcpointer code_to_load, funcpointer return_address, unsigned char* old_data)
+{
+	DWORD bytes_written;
+
+	unsigned char opcodes[] = {									// push eax
+	0x50,														// mov eax, Trampoline
+	0xB8,														// push return_address
+	(unsigned char)(((unsigned long)&trampoline)),				// push code_to_load
+	(unsigned char)(((unsigned long)&trampoline) >> 8),			// jmp eax
+	(unsigned char)(((unsigned long)&trampoline) >> 16),
+	(unsigned char)(((unsigned long)&trampoline) >> 24),
+	0x68,
+	(unsigned char)(((unsigned long)return_address)),
+	(unsigned char)(((unsigned long)return_address) >> 8),
+	(unsigned char)(((unsigned long)return_address) >> 16),
+	(unsigned char)(((unsigned long)return_address) >> 24),
+	0x68,
+	(unsigned char)(((unsigned long)code_to_load)),
+	(unsigned char)(((unsigned long)code_to_load) >> 8),
+	(unsigned char)(((unsigned long)code_to_load) >> 16),
+	(unsigned char)(((unsigned long)code_to_load) >> 24),
+	0xFF,
+	0xE0
+	};
+	SIZE_T len_opcodes = sizeof(opcodes);
+
+	DWORD dwProtect;
+	if (!VirtualProtect(instructions_to_patch, len_opcodes, PAGE_EXECUTE_READWRITE, &dwProtect)) {
+		Message("VirtualProtect failed\n");
+		exit(1);
+	}
+
+	// Save old opcodes
+	if (!WriteProcessMemory(
+		GetCurrentProcess(),
+		(LPVOID)old_data,
+		(LPVOID)instructions_to_patch,
+		len_opcodes,
+		&bytes_written
+	)) {
+		Message("WriteProcessMemory failed\n");
+		exit(1);
+	}
+	else if (bytes_written != len_opcodes) {
+		Message("written too few bytes\n");
+		exit(1);
+	}
+
+	// Write new opcodes
+	if (!WriteProcessMemory(
+		GetCurrentProcess(),
+		(LPVOID)instructions_to_patch,
+		(LPVOID)opcodes,
+		len_opcodes,
+		&bytes_written
+	)) {
+		Message("WriteProcessMemory failed\n");
+		exit(1);
+	}
+	else if (bytes_written != len_opcodes) {
+		Message("written too few bytes\n");
+		exit(1);
+	}
+
+	if (!FlushInstructionCache(
+		GetCurrentProcess(),
+		instructions_to_patch,
+		len_opcodes
+	)) {
+		Message("FlushInstructionCache failed\n");
+		exit(1);
+	}
+
 }
 
 static void HookFunction(funcpointer address_to_patch, funcpointer function_to_load, unsigned char* old_data)
@@ -120,6 +202,15 @@ static void RestoreData(LPVOID dst, LPVOID src, DWORD len)
 		Message("written too few bytes\n");
 		exit(1);
 	}
+
+	if (!FlushInstructionCache(
+		GetCurrentProcess(),
+		dst,
+		len
+	)) {
+		Message("FlushInstructionCache failed\n");
+		exit(1);
+	}
 }
 
 // *************************************************************************************************
@@ -149,6 +240,30 @@ static LSTATUS HookCloseReg()
 	return 1;
 }
 
+unsigned char oldSkipRemote[18] = { 0 };
+static void SkipOtherCreateRemoteThread(unsigned long eax, unsigned long ebx, unsigned long ecx, 
+	unsigned long edx, unsigned long edi, unsigned long esi)
+{
+	Message("SkipOtherCreateRemoteThread triggered\n");
+	RestoreData((LPVOID)ADDRESS_SKIP_REMOTE_THREAD, oldSkipRemote, 18);
+	Sleep(1000 * 3600); // sleep for 1 hour
+}
+
+unsigned char oldInterceptVirtualAlloc[18] = { 0 };
+static void InterceptVirtualAlloc(unsigned long eax, unsigned long ebx, unsigned long ecx,
+	unsigned long edx, unsigned long edi, unsigned long esi)
+{
+	address_t1 = eax;
+
+	char str[10]; str[9] = '\0';
+	sprintf_s(str, "%08x\n", address_t1);
+	Message("InterceptVirtualAlloc triggered\n");
+	Message("ADDRESS: ");
+	Message(str);
+
+	RestoreData((LPVOID)ADDRESS_VIRTUAL_ALLOC, oldInterceptVirtualAlloc, 18);
+}
+
 // *************************************************************************************************
 
 
@@ -170,6 +285,10 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 
 		Message("File initialization completed\n");
 		HookFunction((funcpointer)ADDRESS_GET_EXPLORER_PID, (funcpointer)&HookGetExplorerPid, oldGetExplorerPid);
+		HookInstruction((funcpointer)ADDRESS_SKIP_REMOTE_THREAD, (funcpointer)&SkipOtherCreateRemoteThread, 
+			(funcpointer)ADDRESS_SKIP_REMOTE_THREAD_RETURN, oldSkipRemote);
+		HookInstruction((funcpointer)ADDRESS_VIRTUAL_ALLOC, (funcpointer)&InterceptVirtualAlloc, 
+			(funcpointer)ADDRESS_VIRTUAL_ALLOC, oldInterceptVirtualAlloc);
 		HookDynamicFunction("advapi32", "RegSetValueExA", (funcpointer)&HookSetReg, oldSetReg);
 		HookDynamicFunction("advapi32", "RegCloseKey", (funcpointer)&HookCloseReg, oldCloseReg);
 		Message("Patch completed\n");

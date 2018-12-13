@@ -21,6 +21,9 @@
     <ClInclude Include="targetver.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
+    <ClInclude Include="trampoline.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -32,5 +35,10 @@
     <ClCompile Include="dllmain.cpp">
       <Filter>File di origine</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="trampoline.asm">
+      <Filter>File di origine</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

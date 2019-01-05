@@ -11,6 +11,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HookENFAL", "HookENFAL\Hook
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OnlyCreateFile", "OnlyCreateFile\OnlyCreateFile.vcxproj", "{A1ED2E8D-ED8E-4085-9502-478142709F17}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LogLibrary", "LogLibrary\LogLibrary.vcxproj", "{72D34DBD-6FC1-4EC6-9280-25A5E7FBFADB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -51,6 +53,14 @@ Global
 		{A1ED2E8D-ED8E-4085-9502-478142709F17}.Release|x64.Build.0 = Release|x64
 		{A1ED2E8D-ED8E-4085-9502-478142709F17}.Release|x86.ActiveCfg = Release|Win32
 		{A1ED2E8D-ED8E-4085-9502-478142709F17}.Release|x86.Build.0 = Release|Win32
+		{72D34DBD-6FC1-4EC6-9280-25A5E7FBFADB}.Debug|x64.ActiveCfg = Debug|x64
+		{72D34DBD-6FC1-4EC6-9280-25A5E7FBFADB}.Debug|x64.Build.0 = Debug|x64
+		{72D34DBD-6FC1-4EC6-9280-25A5E7FBFADB}.Debug|x86.ActiveCfg = Debug|Win32
+		{72D34DBD-6FC1-4EC6-9280-25A5E7FBFADB}.Debug|x86.Build.0 = Debug|Win32
+		{72D34DBD-6FC1-4EC6-9280-25A5E7FBFADB}.Release|x64.ActiveCfg = Release|x64
+		{72D34DBD-6FC1-4EC6-9280-25A5E7FBFADB}.Release|x64.Build.0 = Release|x64
+		{72D34DBD-6FC1-4EC6-9280-25A5E7FBFADB}.Release|x86.ActiveCfg = Release|Win32
+		{72D34DBD-6FC1-4EC6-9280-25A5E7FBFADB}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

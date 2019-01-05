@@ -96,7 +96,6 @@ static void WriteThreadHook(unsigned long eax, unsigned long ebx, unsigned long 
 		(funcpointer)address_t1, oldThreadFunction);
 	HookInstruction((funcpointer)(address_t1+OFFSET_THREAD_MAIN_LOOP), (funcpointer)&ThreadInitializationFinished,
 		(funcpointer)(address_t1+OFFSET_THREAD_MAIN_LOOP), oldThreadInitializationFinished);
-
 }
 
 // *************************************************************************************************
@@ -122,10 +121,10 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 		HookFunction((funcpointer)ADDRESS_GET_EXPLORER_PID, (funcpointer)&HookGetExplorerPid, oldGetExplorerPid);
 		HookInstruction((funcpointer)ADDRESS_SKIP_REMOTE_THREAD, (funcpointer)&SkipOtherCreateRemoteThread, 
 			(funcpointer)ADDRESS_SKIP_REMOTE_THREAD_RETURN, oldSkipRemote);
-		HookInstruction((funcpointer)ADDRESS_VIRTUAL_ALLOC, (funcpointer)&InterceptVirtualAlloc, 
-			(funcpointer)ADDRESS_VIRTUAL_ALLOC, oldInterceptVirtualAlloc);
-		HookInstruction((funcpointer)ADDRESS_HOOK_THREAD, (funcpointer)&WriteThreadHook,
-			(funcpointer)ADDRESS_HOOK_THREAD, oldWriteThreadHook);
+		// HookInstruction((funcpointer)ADDRESS_VIRTUAL_ALLOC, (funcpointer)&InterceptVirtualAlloc, 
+		//	(funcpointer)ADDRESS_VIRTUAL_ALLOC, oldInterceptVirtualAlloc);
+		// HookInstruction((funcpointer)ADDRESS_HOOK_THREAD, (funcpointer)&WriteThreadHook,
+		//	(funcpointer)ADDRESS_HOOK_THREAD, oldWriteThreadHook);
 		HookDynamicFunction("advapi32", "RegSetValueExA", (funcpointer)&HookSetReg, oldSetReg);
 		HookDynamicFunction("advapi32", "RegCloseKey", (funcpointer)&HookCloseReg, oldCloseReg);
 		Message("Patch completed\n");
